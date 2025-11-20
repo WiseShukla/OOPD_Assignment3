@@ -89,8 +89,17 @@ public:
             if (entriesCount >= entriesCapacity) {
                 int newCapacity = entriesCapacity == 0 ? 8 : entriesCapacity * 2;
                 IndexEntry* newArray = new IndexEntry[newCapacity];
+                // Manually copy old entries to avoid double-free on array destruction
                 for (int i = 0; i < entriesCount; ++i) {
-                    newArray[i] = entries[i];
+                    newArray[i].courseId = entries[i].courseId;
+                    newArray[i].minGrade = entries[i].minGrade;
+                    newArray[i].students = entries[i].students;
+                    newArray[i].count = entries[i].count;
+                    newArray[i].capacity = entries[i].capacity;
+                    // Reset old entry so its destructor doesn't free the dynamically allocated student array
+                    entries[i].students = nullptr;
+                    entries[i].count = 0;
+                    entries[i].capacity = 0;
                 }
                 if (entries) delete[] entries;
                 entries = newArray;
@@ -130,6 +139,7 @@ private:
     
     Student<RollNumType, CourseIDType>** insertionOrder;
     Student<RollNumType, CourseIDType>** sortedOrder;
+    Student<RollNumType, CourseIDType>** sortedOrderByName; // NEW: for sorting by name
     
     CourseGradeIndex<RollNumType, CourseIDType> gradeIndex;
 
@@ -149,12 +159,13 @@ private:
 
 public:
     StudentDatabase() : students(nullptr), count(0), capacity(0),
-                       insertionOrder(nullptr), sortedOrder(nullptr) {}
+                       insertionOrder(nullptr), sortedOrder(nullptr), sortedOrderByName(nullptr) {} // UPDATED
     
     ~StudentDatabase() {
         if (students) delete[] students;
         if (insertionOrder) delete[] insertionOrder;
         if (sortedOrder) delete[] sortedOrder;
+        if (sortedOrderByName) delete[] sortedOrderByName; // UPDATED
     }
     
     void addStudent(const Student<RollNumType, CourseIDType>& student) {
@@ -177,13 +188,16 @@ public:
     void prepareOrderViews() {
         if (insertionOrder) delete[] insertionOrder;
         if (sortedOrder) delete[] sortedOrder;
+        if (sortedOrderByName) delete[] sortedOrderByName; // UPDATED
         
         insertionOrder = new Student<RollNumType, CourseIDType>*[count];
         sortedOrder = new Student<RollNumType, CourseIDType>*[count];
+        sortedOrderByName = new Student<RollNumType, CourseIDType>*[count]; // UPDATED
         
         for (int i = 0; i < count; ++i) {
             insertionOrder[i] = &students[i];
             sortedOrder[i] = &students[i];
+            sortedOrderByName[i] = &students[i]; // UPDATED
         }
     }
     
@@ -193,6 +207,24 @@ public:
     
     Student<RollNumType, CourseIDType>** getSortedOrder() {
         return sortedOrder;
+    }
+    
+    Student<RollNumType, CourseIDType>** getSortedOrderByName() {
+        return sortedOrderByName;
+    }
+
+    // NEW: Comparison function for Roll Number
+    static bool compareByRollNumber(const Student<RollNumType, CourseIDType>& a, 
+                                    const Student<RollNumType, CourseIDType>& b) {
+        // Delegate to Student class method
+        return Student<RollNumType, CourseIDType>::compareByRollNumber(a, b);
+    }
+    
+    // NEW: Comparison function for Name
+    static bool compareByName(const Student<RollNumType, CourseIDType>& a, 
+                              const Student<RollNumType, CourseIDType>& b) {
+        // Delegate to Student class method
+        return Student<RollNumType, CourseIDType>::compareByName(a, b);
     }
     
     void buildGradeIndex() {

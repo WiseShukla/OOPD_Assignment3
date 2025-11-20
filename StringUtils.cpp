@@ -89,3 +89,14 @@ void copyString(char*& dest, const char* src) {
         dest = nullptr;
     }
 }
+
+int my_stricmp(const char* s1, const char* s2) {
+    char c1, c2;
+    do {
+        c1 = my_tolower(*s1++);
+        c2 = my_tolower(*s2++);
+        if (c1 == '\0') break;
+    } while (c1 == c2);
+
+    return (unsigned char)c1 - (unsigned char)c2;
+}

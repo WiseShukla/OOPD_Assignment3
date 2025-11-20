@@ -1,4 +1,4 @@
-// CSVReader.h
+// CSVReader.h - FINAL FIX with explicit field verification
 #ifndef CSV_READER_H
 #define CSV_READER_H
 
@@ -6,23 +6,21 @@
 #include "Student.h"
 #include "StudentDatabase.h"
 
-// Forward declarations
 extern "C" long syscall3(long number, long arg1, long arg2, long arg3);
 extern "C" long syscall4(long number, long arg1, long arg2, long arg3, long arg4);
 
-// Helper function for comparing course IDs (handles different types)
 template<typename CourseIDType>
 inline bool courseIdsEqual(const CourseIDType& a, const CourseIDType& b) {
-    return a == b;  // Default: use operator==
+    return a == b;
 }
 
-// Specialization for const char*
 template<>
 inline bool courseIdsEqual<const char*>(const char* const& a, const char* const& b) {
-    return my_strcmp(a, b) == 0;  // Compare string contents
+    
+    extern int my_stricmp(const char* s1, const char* s2); 
+    return my_stricmp(a, b) == 0;
 }
 
-// Simple CSV parser
 class CSVReader {
 private:
     static void parseCSVLine(const char* line, char** fields, int maxFields, int& fieldCount) {
@@ -35,17 +33,18 @@ private:
             if (line[i] == '"') {
                 inQuotes = !inQuotes;
             } else if ((line[i] == ',' && !inQuotes) || line[i] == '\0') {
-                // Extract field
-                int fieldLen = i - fieldStart;
+                int fieldEnd = i;
+                while (fieldEnd > fieldStart && my_isspace(line[fieldEnd - 1])) {
+                    fieldEnd--;
+                }
+                
+                int fieldLen = fieldEnd - fieldStart;
                 fields[fieldCount] = new char[fieldLen + 1];
                 
-                int destIdx = 0;
-                for (int j = fieldStart; j < i; j++) {
-                    if (line[j] != '"') {
-                        fields[fieldCount][destIdx++] = line[j];
-                    }
+                for (int j = 0; j < fieldLen; j++) {
+                    fields[fieldCount][j] = line[fieldStart + j];
                 }
-                fields[fieldCount][destIdx] = '\0';
+                fields[fieldCount][fieldLen] = '\0';
                 
                 fieldCount++;
                 fieldStart = i + 1;
@@ -59,20 +58,64 @@ private:
         }
     }
 
+    static void intToChar(int num, char* buffer) {
+        int i = 0;
+        if (num == 0) {
+            buffer[i++] = '0';
+        } else {
+            int digits[20];
+            int digitCount = 0;
+            bool negative = false;
+            if (num < 0) {
+                negative = true;
+                num = -num;
+            }
+            
+            while (num > 0) {
+                digits[digitCount++] = num % 10;
+                num /= 10;
+            }
+            
+            if (negative) buffer[i++] = '-';
+            
+            for (int j = digitCount - 1; j >= 0; j--) {
+                buffer[i++] = '0' + digits[j];
+            }
+        }
+        buffer[i] = '\0';
+    }
+
+    static void uintToChar(unsigned int num, char* buffer) {
+        int i = 0;
+        if (num == 0) {
+            buffer[i++] = '0';
+        } else {
+            unsigned int digits[20];
+            int digitCount = 0;
+            
+            while (num > 0) {
+                digits[digitCount++] = num % 10;
+                num /= 10;
+            }
+            for (int j = digitCount - 1; j >= 0; j--) {
+                buffer[i++] = '0' + digits[j];
+            }
+        }
+        buffer[i] = '\0';
+    }
+
 public:
-    // Load students from CSV file
     template<typename RollNumType, typename CourseIDType>
     static bool loadFromCSV(const char* filename, 
                            StudentDatabase<RollNumType, CourseIDType>& db,
                            RollNumType (*parseRollNum)(const char*),
                            CourseIDType (*parseCourseId)(const char*)) {
-        // Open file (syscall 2)
-        long fd = syscall3(2, (long)filename, 0, 0); // O_RDONLY = 0
-        if (fd < 0) {
-            return false;
-        }
+        (void)parseRollNum;
+        (void)parseCourseId;
+
+        long fd = syscall3(2, (long)filename, 0, 0);
+        if (fd < 0) return false;
         
-        // Read file content
         const int BUFFER_SIZE = 65536;
         char* buffer = new char[BUFFER_SIZE];
         char* fileContent = new char[1];
@@ -85,27 +128,33 @@ public:
             
             char* newContent = new char[totalSize + bytesRead + 1];
             if (totalSize > 0) {
-                my_strcpy(newContent, fileContent);
+                for (int i = 0; i < totalSize; i++) {
+                    newContent[i] = fileContent[i];
+                }
             }
-            my_strcpy(newContent + totalSize, buffer);
-            totalSize += bytesRead;
+            for (int i = 0; i < bytesRead; i++) {
+                newContent[totalSize + i] = buffer[i];
+            }
+            newContent[totalSize + bytesRead] = '\0';
             
             delete[] fileContent;
             fileContent = newContent;
+            totalSize += bytesRead;
         }
         
-        // Close file (syscall 3)
         syscall3(3, fd, 0, 0);
         delete[] buffer;
         
-        // Parse CSV content
+        if (totalSize == 0 || fileContent == nullptr) {
+             return false;
+        }
+        
         int lineStart = 0;
         bool firstLine = true;
         
         for (int i = 0; i <= totalSize; i++) {
             if (fileContent[i] == '\n' || fileContent[i] == '\0') {
                 if (i > lineStart) {
-                    // Extract line
                     int lineLen = i - lineStart;
                     char* line = new char[lineLen + 1];
                     for (int j = 0; j < lineLen; j++) {
@@ -113,40 +162,63 @@ public:
                     }
                     line[lineLen] = '\0';
                     
-                    // Skip header line
                     if (firstLine) {
                         firstLine = false;
                     } else {
-                        // Parse line
                         const int MAX_FIELDS = 20;
                         char* fields[MAX_FIELDS];
                         int fieldCount;
                         
                         parseCSVLine(line, fields, MAX_FIELDS, fieldCount);
                         
+                        // CSV Format: Name,RollNumber,Branch,Year,CurrentCourse,Course1,Grade1,Course2,Grade2
                         if (fieldCount >= 4) {
-                            // Create student: name, rollNum, branch, year
-                            RollNumType rollNum = parseRollNum(fields[1]);
+                            char* nameCopy = new char[my_strlen(fields[0]) + 1];
+                            my_strcpy(nameCopy, fields[0]);
+                            
+                            char* rollCopy = new char[my_strlen(fields[1]) + 1];
+                            my_strcpy(rollCopy, fields[1]);
+                            
+                            char* branchCopy = new char[my_strlen(fields[2]) + 1];
+                            my_strcpy(branchCopy, fields[2]);
+                            
                             int year = my_atoi(fields[3]);
                             
                             Student<RollNumType, CourseIDType> student(
-                                fields[0], rollNum, fields[2], year
+                                nameCopy, rollCopy, branchCopy, year
                             );
                             
-                            // Parse completed courses if present
-                            if (fieldCount > 4) {
-                                for (int f = 4; f < fieldCount; f += 2) {
+                            if (fieldCount > 4 && my_strlen(fields[4]) > 0) {
+                                char* courseIdCopy = new char[my_strlen(fields[4]) + 1];
+                                my_strcpy(courseIdCopy, fields[4]);
+                                
+                                char* courseNameCopy = new char[my_strlen(fields[4]) + 1];
+                                my_strcpy(courseNameCopy, fields[4]);
+                                
+                                student.addCurrentCourse(Course<CourseIDType>(courseIdCopy, courseNameCopy, -1));
+                            }
+
+                            if (fieldCount > 5) {
+                                for (int f = 5; f < fieldCount; f += 2) {
                                     if (f + 1 < fieldCount) {
-                                        // For const char* types, Course constructor will copy the string
-                                        CourseIDType courseId = parseCourseId(fields[f]);
+                                        char* completedIdCopy = new char[my_strlen(fields[f]) + 1];
+                                        my_strcpy(completedIdCopy, fields[f]);
+                                        
+                                        char* completedNameCopy = new char[my_strlen(fields[f]) + 1];
+                                        my_strcpy(completedNameCopy, fields[f]);
+                                        
                                         int grade = my_atoi(fields[f + 1]);
-                                        Course<CourseIDType> course(courseId, fields[f], grade);
-                                        student.addCompletedCourse(course);
+                                        student.addCompletedCourse(Course<CourseIDType>(completedIdCopy, completedNameCopy, grade));
                                     }
                                 }
                             }
                             
                             db.addStudent(student);
+                            
+                            delete[] nameCopy;
+                            // **FIX HERE: DO NOT delete rollCopy. Student object must own this memory.**
+                            // delete[] rollCopy; 
+                            delete[] branchCopy;
                         }
                         
                         freeFields(fields, fieldCount);
@@ -164,120 +236,213 @@ public:
         return true;
     }
     
-    // Generate sample CSV for testing
+    // COMPLETELY REWRITTEN - Building string step by step with clear field markers
     static void generateSampleCSV(const char* filename, int numRecords) {
-        // Open file for writing (syscall 2: open, flags: O_WRONLY|O_CREAT|O_TRUNC = 0x241, mode: 0644)
         long fd = syscall4(2, (long)filename, 0x241, 0644, 0);
         if (fd < 0) return;
         
         // Write header
-        const char* header = "Name,RollNumber,Branch,Year,Course1,Grade1,Course2,Grade2\n";
+        const char* header = "Name,RollNumber,Branch,Year,CurrentCourse,Course1,Grade1,Course2,Grade2\n";
         syscall3(1, fd, (long)header, my_strlen(header));
         
-        // Write records
+        const char* names[] = {
+            "Aarav", "Vivaan", "Aditya", "Vihaan", "Arjun",
+            "Sai", "Arnav", "Ayaan", "Krishna", "Ishaan",
+            "Shaurya", "Atharv", "Advik", "Pranav", "Reyansh",
+            "Aaradhya", "Diya", "Saanvi", "Ananya", "Pari",
+            "Navya", "Angel", "Ira", "Prisha", "Anaya",
+            "Ravi", "Priya", "Amit", "Sneha", "Karan",
+            "Nisha", "Rahul", "Divya", "Meera", "Rohan",
+            "Anjali", "Vikram", "Pooja", "Aryan", "Kavya",
+            "Aakash", "Simran", "Varun", "Tanvi", "Nikhil",
+            "Ritu", "Siddharth", "Neha", "Kunal", "Shruti"
+        };
+        
+        const char* surnames[] = {
+            "Sharma", "Verma", "Gupta", "Singh", "Patel",
+            "Kumar", "Reddy", "Yadav", "Jain", "Nair",
+            "Mehta", "Desai", "Shah", "Agarwal", "Chopra",
+            "Malhotra", "Kapoor", "Bansal", "Khanna", "Bhatia",
+            "Sethi", "Arora", "Saxena", "Mishra", "Pandey",
+            "Tiwari", "Chauhan", "Rajput", "Thakur", "Rathore",
+            "Joshi", "Kulkarni", "Deshpande", "Patil", "Pawar",
+            "Jadhav", "Shinde", "More", "Kale", "Bhosale",
+            "Iyer", "Menon", "Pillai", "Das", "Roy",
+            "Ghosh", "Mukherjee", "Chatterjee", "Banerjee", "Sen",
+            "Khan", "Ali", "Ahmed", "Hussain", "Malik",
+            "Sinha", "Choudhury", "Dutta", "Bose", "Chakraborty"
+        };
+        
         const char* branches[] = {"CSE", "ECE", "CSAM", "CSD", "CSB"};
-        const char* courses[] = {"OOPD", "DSA", "OS", "CN", "DBMS", "AI", "ML"};
+        const char* iitBranches[] = {"CS", "EE", "ME", "CE", "CH"};
+        
+        const char* iiitCourses[] = {
+            "OOPD", "DSA", "OS", "CN", "DBMS",
+            "AI", "ML", "NLP", "CV", "SEC",
+            "TOC", "COA", "ALGO", "WEB", "MOBILE",
+            "CLOUD", "IOT", "CYBER", "GAME", "ROBOTICS"
+        };
+        
+        const char* iitCourses[] = {
+            "101", "202", "303", "401", "523",
+            "601", "702", "815", "920", "1005",
+            "111", "222", "333", "444", "555",
+            "666", "777", "888", "999", "1111"
+        };
+        
+        int iitCounter = 0;
+        char lineBuffer[512];
         
         for (int i = 0; i < numRecords; i++) {
-            char line[256];
             int pos = 0;
             
-            // Name
-            const char* namePrefix = "Student";
-            for (int j = 0; namePrefix[j]; j++) line[pos++] = namePrefix[j];
+            bool isIITStudent = (i % 150 == 0 && iitCounter < 20);
+            if (isIITStudent) iitCounter++;
             
-            // Convert i to string
-            char numStr[20];
-            int numLen = 0;
-            int temp = i + 1;
-            if (temp == 0) {
-                numStr[numLen++] = '0';
+            // === Build complete record string ===
+            
+            // 1. NAME FIELD
+            int nameIdx = i % 50;
+            int surnameIdx = (i / 50) % 60;
+            const char* firstName = names[nameIdx];
+            const char* lastName = surnames[surnameIdx];
+            
+            // Copy first name
+            int j = 0;
+            while (firstName[j]) {
+                lineBuffer[pos++] = firstName[j++];
+            }
+            lineBuffer[pos++] = ' ';
+            
+            // Copy last name
+            j = 0;
+            while (lastName[j]) {
+                lineBuffer[pos++] = lastName[j++];
+            }
+            lineBuffer[pos++] = ',';  // End of Name field
+            
+            // 2. ROLL NUMBER FIELD
+            char rollBuffer[32];
+            if (isIITStudent) {
+                // IIT: numeric roll
+                unsigned int rollNum = 2021001 + iitCounter - 1;
+                uintToChar(rollNum, rollBuffer);
             } else {
-                int digits[20];
-                int digitCount = 0;
-                while (temp > 0) {
-                    digits[digitCount++] = temp % 10;
-                    temp /= 10;
+                // IIIT: MT21XXX or PhD21XXX
+                int rpos = 0;
+                const char* prefix = (i % 3 == 0) ? "PhD" : "MT";
+                
+                j = 0;
+                while (prefix[j]) {
+                    rollBuffer[rpos++] = prefix[j++];
                 }
-                for (int j = digitCount - 1; j >= 0; j--) {
-                    numStr[numLen++] = '0' + digits[j];
+                
+                // Year part
+                int yearSuffix = 21 + (i / 600);
+                char yearStr[8];
+                intToChar(yearSuffix, yearStr);
+                
+                // Pad year to 2 digits
+                if (yearStr[1] == '\0') {
+                    rollBuffer[rpos++] = '0';
                 }
+                j = 0;
+                while (yearStr[j]) {
+                    rollBuffer[rpos++] = yearStr[j++];
+                }
+                
+                // Serial number (3 digits)
+                int serialNum = (i % 600) + 1;
+                char serialStr[8];
+                intToChar(serialNum, serialStr);
+                
+                int serialLen = my_strlen(serialStr);
+                for (int pad = 0; pad < 3 - serialLen; pad++) {
+                    rollBuffer[rpos++] = '0';
+                }
+                j = 0;
+                while (serialStr[j]) {
+                    rollBuffer[rpos++] = serialStr[j++];
+                }
+                
+                rollBuffer[rpos] = '\0';
             }
-            numStr[numLen] = '\0';
             
-            for (int j = 0; j < numLen; j++) line[pos++] = numStr[j];
-            line[pos++] = ',';
-            
-            // Roll number (use a scrambled pattern for unsorted data)
-            int rollNum = 2020000 + ((i * 7919) % numRecords); // Prime number for scrambling
-            temp = rollNum;
-            numLen = 0;
-            int digits[20];
-            int digitCount = 0;
-            while (temp > 0) {
-                digits[digitCount++] = temp % 10;
-                temp /= 10;
+            // Copy roll number to line
+            j = 0;
+            while (rollBuffer[j]) {
+                lineBuffer[pos++] = rollBuffer[j++];
             }
-            for (int j = digitCount - 1; j >= 0; j--) {
-                line[pos++] = '0' + digits[j];
+            lineBuffer[pos++] = ',';  // End of Roll Number field
+            
+            // 3. BRANCH FIELD
+            const char* branch = isIITStudent ? iitBranches[i % 5] : branches[i % 5];
+            j = 0;
+            while (branch[j]) {
+                lineBuffer[pos++] = branch[j++];
             }
-            line[pos++] = ',';
+            lineBuffer[pos++] = ',';  // End of Branch field
             
-            // Branch
-            const char* branch = branches[i % 5];
-            for (int j = 0; branch[j]; j++) line[pos++] = branch[j];
-            line[pos++] = ',';
-            
-            // Year
+            // 4. YEAR FIELD
             int year = 2020 + (i % 4);
-            temp = year;
-            numLen = 0;
-            digitCount = 0;
-            while (temp > 0) {
-                digits[digitCount++] = temp % 10;
-                temp /= 10;
+            char yearBuf[8];
+            intToChar(year, yearBuf);
+            j = 0;
+            while (yearBuf[j]) {
+                lineBuffer[pos++] = yearBuf[j++];
             }
-            for (int j = digitCount - 1; j >= 0; j--) {
-                line[pos++] = '0' + digits[j];
+            lineBuffer[pos++] = ',';  // End of Year field
+            
+            // 5. CURRENT COURSE FIELD
+            const char* currentCourse = (i % 2 == 0) ? iiitCourses[i % 20] : iitCourses[i % 20];
+            j = 0;
+            while (currentCourse[j]) {
+                lineBuffer[pos++] = currentCourse[j++];
             }
-            line[pos++] = ',';
+            lineBuffer[pos++] = ',';  // End of Current Course field
             
-            // Course 1 - ensure OOPD appears frequently with good grades
-            const char* course1 = (i % 3 == 0) ? "OOPD" : courses[i % 7];
-            for (int j = 0; course1[j]; j++) line[pos++] = course1[j];
-            line[pos++] = ',';
-            
-            // Grade 1 - ensure many students get 9 or 10
-            int grade1 = 6 + (i % 5);  // Grades: 6,7,8,9,10
-            if (grade1 >= 10) {
-                line[pos++] = '1';
-                line[pos++] = '0';
-            } else {
-                line[pos++] = '0' + grade1;
+            // 6. COMPLETED COURSE 1
+            const char* completedCourse1 = ((i + 1) % 2 == 0) ? iiitCourses[(i + 3) % 20] : iitCourses[(i + 3) % 20];
+            j = 0;
+            while (completedCourse1[j]) {
+                lineBuffer[pos++] = completedCourse1[j++];
             }
-            line[pos++] = ',';
+            lineBuffer[pos++] = ',';
             
-            // Course 2
-            const char* course2 = courses[(i + 1) % 7];
-            for (int j = 0; course2[j]; j++) line[pos++] = course2[j];
-            line[pos++] = ',';
-            
-            // Grade 2
-            int grade2 = 6 + (i % 5);
-            if (grade2 >= 10) {
-                line[pos++] = '1';
-                line[pos++] = '0';
-            } else {
-                line[pos++] = '0' + grade2;
+            // 7. GRADE 1
+            int grade1 = 6 + (i % 5);
+            char gradeBuf[4];
+            intToChar(grade1, gradeBuf);
+            j = 0;
+            while (gradeBuf[j]) {
+                lineBuffer[pos++] = gradeBuf[j++];
             }
-            line[pos++] = '\n';
+            lineBuffer[pos++] = ',';
             
-            line[pos] = '\0';
+            // 8. COMPLETED COURSE 2
+            const char* completedCourse2 = ((i + 2) % 2 == 0) ? iiitCourses[(i + 7) % 20] : iitCourses[(i + 7) % 20];
+            j = 0;
+            while (completedCourse2[j]) {
+                lineBuffer[pos++] = completedCourse2[j++];
+            }
+            lineBuffer[pos++] = ',';
             
-            syscall3(1, fd, (long)line, pos);
+            // 9. GRADE 2
+            int grade2 = 6 + ((i + 1) % 5);
+            intToChar(grade2, gradeBuf);
+            j = 0;
+            while (gradeBuf[j]) {
+                lineBuffer[pos++] = gradeBuf[j++];
+            }
+            
+            // End of line
+            lineBuffer[pos++] = '\n';
+            lineBuffer[pos] = '\0';
+            
+            // Write line to file
+            syscall3(1, fd, (long)lineBuffer, pos);
         }
         
-        // Close file
         syscall3(3, fd, 0, 0);
     }
 };

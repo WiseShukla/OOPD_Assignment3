@@ -5,6 +5,7 @@
 unsigned int my_strlen(const char* str);
 void my_strcpy(char* dest, const char* src);
 int my_strcmp(const char* s1, const char* s2);
+int my_stricmp(const char* s1, const char* s2);
 const char* my_strstr(const char* haystack, const char* needle);
 char my_tolower(char c);
 int my_atoi(const char* str);

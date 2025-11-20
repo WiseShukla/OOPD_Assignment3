@@ -1,348 +1,510 @@
-// main.cpp
+// main.cpp - Complete with Q1 and Q2 implementations (minimal output)
 #include "basicIO.h"
 #include "Student.h"
 #include "StudentDatabase.h"
+#include "CSVReader.h"
 #include "ParallelSort.h"
 #include "Iterator.h"
-#include "CSVReader.h"
-#include "StringUtils.h"
 
-// Parse functions for different types
-unsigned int parseUnsignedInt(const char* str) {
-    return (unsigned int)my_atoi(str);
-}
+// Lambda functions for parsing
+const char* parseRollNum(const char* str) { return str; }
+const char* parseCourseId(const char* str) { return str; }
 
-const char* parseString(const char* str) {
-    static char buffer[256];
-    int i = 0;
-    while (str[i] && i < 255) {
-        buffer[i] = str[i];
-        i++;
-    }
-    buffer[i] = '\0';
-    return buffer;
-}
-
-// Convert string to uppercase
-void toUpperCase(char* str) {
-    for (int i = 0; str[i]; i++) {
-        if (str[i] >= 'a' && str[i] <= 'z') {
-            str[i] = str[i] - 'a' + 'A';
-        }
-    }
-}
-
-// Display student information
-template<typename RollNumType, typename CourseIDType>
-void displayStudent(const Student<RollNumType, CourseIDType>& student);
-
-// Specialization for unsigned int roll number and const char* course
-template<>
-void displayStudent(const Student<unsigned int, const char*>& student) {
-    io.outputstring("Name: ");
-    io.outputstring(student.getName());
-    io.outputstring(", Roll: ");
-    io.outputint(student.getRollNumber());
-    io.outputstring(", Branch: ");
-    io.outputstring(student.getBranch());
-    io.outputstring(", Year: ");
-    io.outputint(student.getStartingYear());
-    
-    if (student.getCompletedCoursesCount() > 0) {
-        io.outputstring(", Completed: [");
-        for (int i = 0; i < student.getCompletedCoursesCount(); i++) {
-            const auto& course = student.getCompletedCourse(i);
-            io.outputstring(course.getCourseId());
-            io.outputstring("(");
-            io.outputint(course.getGrade());
-            io.outputstring(")");
-            if (i < student.getCompletedCoursesCount() - 1) {
-                io.outputstring(", ");
-            }
-        }
-        io.outputstring("]");
-    }
-    io.terminate();
-}
-
-// Specialization for unsigned int roll number and int course
-template<>
-void displayStudent(const Student<unsigned int, int>& student) {
-    io.outputstring("Name: ");
-    io.outputstring(student.getName());
-    io.outputstring(", Roll: ");
-    io.outputint(student.getRollNumber());
-    io.outputstring(", Branch: ");
-    io.outputstring(student.getBranch());
-    io.outputstring(", Year: ");
-    io.outputint(student.getStartingYear());
-    
-    if (student.getCompletedCoursesCount() > 0) {
-        io.outputstring(", Completed: [");
-        for (int i = 0; i < student.getCompletedCoursesCount(); i++) {
-            const auto& course = student.getCompletedCourse(i);
-            io.outputint(course.getCourseId());
-            io.outputstring("(");
-            io.outputint(course.getGrade());
-            io.outputstring(")");
-            if (i < student.getCompletedCoursesCount() - 1) {
-                io.outputstring(", ");
-            }
-        }
-        io.outputstring("]");
-    }
-    io.terminate();
-}
-
-void printMenu() {
+// ============================================================================
+// Q1: Generic Student Records Demo
+// ============================================================================
+void handleQ1() {
     io.outputstring("\n========================================\n");
-    io.outputstring("  University ERP System - Main Menu\n");
-    io.outputstring("========================================\n");
-    io.outputstring("1. Template Class Examples (Q1 & Q2)\n");
-    io.outputstring("2. Load and Sort 3000 Students (Q3)\n");
-    io.outputstring("3. Show Iterator Views (Q4)\n");
-    io.outputstring("4. Query by Course Grade (Q5)\n");
-    io.outputstring("5. Exit\n");
-    io.outputstring("========================================\n");
-    io.outputstring("Enter choice (1-5): ");
-}
-
-void printIteratorMenu() {
-    io.outputstring("\n--- Iterator View Menu ---\n");
-    io.outputstring("1. Insertion Order (order in which records were entered)\n");
-    io.outputstring("2. Sorted Order (sorted by roll number)\n");
-    io.outputstring("3. Return to Main Menu\n");
-    io.outputstring("Enter choice (1-3): ");
-}
-
-// Global database for menu operations
-StudentDatabase<unsigned int, const char*> globalDB;
-bool dataLoaded = false;
-
-void option1_TemplateExamples() {
-    io.outputstring("\n=== Questions 1 & 2: Template Class ===\n");
-    io.terminate();
+    io.outputstring(" Question 1: Generic Student Records\n");
+    io.outputstring("========================================\n\n");
     
-    io.outputstring("\n--- IIIT-Delhi (String course codes) ---\n");
-    Student<unsigned int, const char*> s1("Adarsh Kumar", 2020101, "CSE", 2020);
-    s1.addCompletedCourse(Course<const char*>("OOPD", "OOP", 9));
-    s1.addCompletedCourse(Course<const char*>("DSA", "Data Structures", 10));
-    displayStudent(s1);
+    io.outputstring("Demonstrating template flexibility with different data types:\n\n");
     
-    Student<unsigned int, const char*> s2("Priya Sharma", 2020102, "ECE", 2020);
-    s2.addCompletedCourse(Course<const char*>("EM", "EM Theory", 8));
-    displayStudent(s2);
+    // Example 1: IIIT Delhi student with string roll number and string course codes
+    io.outputstring("--- Example 1: IIIT Delhi Student ---\n");
+    io.outputstring("Type: Student<const char*, const char*>\n");
+    Student<const char*, const char*> iiitStudent("Rajesh Kumar", "MT21045", "CSE", 2021);
     
-    io.outputstring("\n--- IIT-Delhi (Integer course codes) ---\n");
-    Student<unsigned int, int> s3("Rahul Verma", 2020201, "CSE", 2020);
-    s3.addCompletedCourse(Course<int>(101, "Programming", 9));
-    s3.addCompletedCourse(Course<int>(102, "Digital Logic", 10));
-    displayStudent(s3);
+    // Add current course (IIIT style - string acronym)
+    iiitStudent.addCurrentCourse(Course<const char*>("OOPD", "Object Oriented Programming & Design", -1));
     
-    Student<unsigned int, int> s4("Sneha Patel", 2020202, "ME", 2020);
-    s4.addCompletedCourse(Course<int>(201, "Mechanics", 7));
-    displayStudent(s4);
+    // Add completed courses
+    iiitStudent.addCompletedCourse(Course<const char*>("DSA", "Data Structures & Algorithms", 9));
+    iiitStudent.addCompletedCourse(Course<const char*>("OS", "Operating Systems", 10));
     
-    io.terminate();
-}
-
-void option2_LoadAndSort() {
-    io.outputstring("\n=== Question 3: Parallel Sorting ===\n");
-    io.terminate();
-    
-    if (!dataLoaded) {
-        io.outputstring("Generating CSV with 3000 records...\n");
-        CSVReader::generateSampleCSV("students.csv", 3000);
-        io.outputstring("CSV generated.\n");
-        
-        io.outputstring("Loading students...\n");
-        CSVReader::loadFromCSV("students.csv", globalDB, parseUnsignedInt, parseString);
-        io.outputstring("Loaded ");
-        io.outputint(globalDB.getCount());
-        io.outputstring(" students\n");
-        
-        dataLoaded = true;
-    } else {
-        io.outputstring("Data already loaded: ");
-        io.outputint(globalDB.getCount());
-        io.outputstring(" students\n");
+    io.outputstring("Name: ");
+    io.outputstring(iiitStudent.getName());
+    io.outputstring("\nRoll: ");
+    io.outputstring(iiitStudent.getRollNumber());
+    io.outputstring(" (string type)");
+    io.outputstring("\nBranch: ");
+    io.outputstring(iiitStudent.getBranch());
+    io.outputstring("\nYear: ");
+    io.outputint(iiitStudent.getStartingYear());
+    io.outputstring("\nCurrent Course: ");
+    if (iiitStudent.getCurrentCoursesCount() > 0) {
+        io.outputstring(iiitStudent.getCurrentCourse(0).getCourseId());
+    }
+    io.outputstring("\nCompleted Courses:\n");
+    for (int i = 0; i < iiitStudent.getCompletedCoursesCount(); i++) {
+        io.outputstring("  - ");
+        io.outputstring(iiitStudent.getCompletedCourse(i).getCourseId());
+        io.outputstring(" (Grade: ");
+        io.outputint(iiitStudent.getCompletedCourse(i).getGrade());
+        io.outputstring(")\n");
     }
     
-    globalDB.prepareOrderViews();
+    io.outputstring("\n--- Example 2: IIT Delhi Student ---\n");
+    io.outputstring("Type: Student<unsigned int, int>\n");
+    Student<unsigned int, int> iitStudent("Priya Sharma", 2021045, "CS", 2021);
     
-    io.outputstring("\nSorting with 4 threads...\n");
-    ParallelSort<unsigned int, const char*> sorter(4);
-    sorter.sort(globalDB.getSortedOrder(), globalDB.getCount());
-    io.outputstring("Sorting completed.\n");
+    // Add current course (IIT style - integer code)
+    iitStudent.addCurrentCourse(Course<int>(401, "Advanced Algorithms", -1));
     
-    io.outputstring("\nThread times:\n");
-    sorter.printThreadTimes(
-        [](const char* s) { io.outputstring(s); },
-        [](int i) { io.outputint(i); }
-    );
+    // Add completed courses (IIT style - integer codes)
+    iitStudent.addCompletedCourse(Course<int>(101, "Introduction to Programming", 8));
+    iitStudent.addCompletedCourse(Course<int>(202, "Data Structures", 9));
+    
+    io.outputstring("Name: ");
+    io.outputstring(iitStudent.getName());
+    io.outputstring("\nRoll: ");
+    io.outputint((int)iitStudent.getRollNumber());
+    io.outputstring(" (unsigned int type)");
+    io.outputstring("\nBranch: ");
+    io.outputstring(iitStudent.getBranch());
+    io.outputstring("\nYear: ");
+    io.outputint(iitStudent.getStartingYear());
+    io.outputstring("\nCurrent Course: ");
+    if (iitStudent.getCurrentCoursesCount() > 0) {
+        io.outputint(iitStudent.getCurrentCourse(0).getCourseId());
+    }
+    io.outputstring("\nCompleted Courses:\n");
+    for (int i = 0; i < iitStudent.getCompletedCoursesCount(); i++) {
+        io.outputstring("  - ");
+        io.outputint(iitStudent.getCompletedCourse(i).getCourseId());
+        io.outputstring(" (Grade: ");
+        io.outputint(iitStudent.getCompletedCourse(i).getGrade());
+        io.outputstring(")\n");
+    }
+    
+    io.outputstring("\n--- Example 3: Mixed Types ---\n");
+    io.outputstring("Type: Student<const char*, int>\n");
+    Student<const char*, int> mixedStudent("Amit Patel", "PhD22100", "EE", 2022);
+    
+    // String roll number with integer course codes
+    mixedStudent.addCurrentCourse(Course<int>(555, "Machine Learning", -1));
+    mixedStudent.addCompletedCourse(Course<int>(333, "Artificial Intelligence", 10));
+    
+    io.outputstring("Name: ");
+    io.outputstring(mixedStudent.getName());
+    io.outputstring("\nRoll: ");
+    io.outputstring(mixedStudent.getRollNumber());
+    io.outputstring(" (string)");
+    io.outputstring("\nCourses: integers\n");
+    io.outputstring("Current: ");
+    io.outputint(mixedStudent.getCurrentCourse(0).getCourseId());
+    io.outputstring("\n");
 }
 
-void option3_ShowIterators() {
-    io.outputstring("\n=== Question 4: Iterator Views ===\n");
-    io.terminate();
-    
-    if (!dataLoaded) {
-        io.outputstring("Error: Load data first (Option 2)\n");
-        return;
+// Helper function to check if course already completed (background validation)
+bool isCourseAlreadyCompleted(const Student<const char*, const char*>& student, const char* courseId) {
+    for (int i = 0; i < student.getCompletedCoursesCount(); i++) {
+        if (my_strcmp(student.getCompletedCourse(i).getCourseId(), courseId) == 0) {
+            return true;
+        }
     }
-    
-    io.outputstring("Total: ");
-    io.outputint(globalDB.getCount());
-    io.outputstring(" students\n");
-    
-    bool iteratorRunning = true;
-    while (iteratorRunning) {
-        printIteratorMenu();
-        int viewChoice = io.inputint();
-        
-        if (viewChoice == 3) {
-            iteratorRunning = false;
-            continue;
-        }
-        
-        if (viewChoice != 1 && viewChoice != 2) {
-            io.outputstring("\nInvalid choice. Enter 1-3.\n");
-            continue;
-        }
-        
-        io.outputstring("\nHow many records to display? ");
-        int numRecords = io.inputint();
-        
-        if (numRecords <= 0 || numRecords > globalDB.getCount()) {
-            numRecords = globalDB.getCount();
-        }
-        
-        if (viewChoice == 1) {
-            io.outputstring("\n--- Records in Insertion Order ---\n");
-            InsertionOrderIterator<unsigned int, const char*> insertIter(
-                globalDB.getInsertionOrder(), globalDB.getCount()
-            );
-            
-            int cnt = 0;
-            while (insertIter.hasNext() && cnt < numRecords) {
-                displayStudent(*insertIter.next());
-                cnt++;
-            }
-        } else if (viewChoice == 2) {
-            io.outputstring("\n--- Records in Sorted Order (by Roll Number) ---\n");
-            SortedOrderIterator<unsigned int, const char*> sortedIter(
-                globalDB.getSortedOrder(), globalDB.getCount()
-            );
-            
-            int cnt = 0;
-            while (sortedIter.hasNext() && cnt < numRecords) {
-                displayStudent(*sortedIter.next());
-                cnt++;
-            }
-        }
-        
-        io.terminate();
-    }
+    return false;
 }
 
-void option4_QueryByGrade() {
-    io.outputstring("\n=== Question 5: Course Grade Query ===\n");
-    io.terminate();
+// ============================================================================
+// Q2: IIIT & IIT Course Handling Demo
+// ============================================================================
+void handleQ2() {
+    io.outputstring("\n========================================\n");
+    io.outputstring(" Question 2: IIIT & IIT Course Handling\n");
+    io.outputstring("========================================\n\n");
     
-    if (!dataLoaded) {
-        io.outputstring("Error: Load data first (Option 2)\n");
-        return;
+    io.outputstring("Demonstrating IIIT-Delhi students taking both:\n");
+    io.outputstring("- IIIT courses (string codes like OOPD, DSA)\n");
+    io.outputstring("- IIT courses (integer codes like 401, 523)\n\n");
+    
+    // SCENARIO 1: Valid - Student taking new IIIT course (OOPD) 
+    io.outputstring("--- Scenario 1: Valid Case ---\n");
+    io.outputstring("IIIT-Delhi Student\n");
+    Student<const char*, const char*> validStudent("Sneha Reddy", "MT22089", "CSE", 2022);
+    
+    // Completed IIIT courses (string codes)
+    validStudent.addCompletedCourse(Course<const char*>("DSA", "Data Structures", 9));
+    validStudent.addCompletedCourse(Course<const char*>("DBMS", "Database Systems", 8));
+    
+    // Completed IIT courses - different from current course
+    validStudent.addCompletedCourse(Course<const char*>("523", "IIT ML Course", 10));
+    validStudent.addCompletedCourse(Course<const char*>("702", "IIT Networks Course", 9));
+    
+    // Check if OOPD is already completed (background validation)
+    const char* currentCourse1 = "OOPD";
+    if (!isCourseAlreadyCompleted(validStudent, currentCourse1)) {
+        // Only add current course if not already completed
+        validStudent.addCurrentCourse(Course<const char*>("OOPD", "Object Oriented Programming", -1));
     }
     
-    io.outputstring("Building index...\n");
-    globalDB.buildGradeIndex();
-    io.outputstring("Index built.\n");
-    io.terminate();
+    io.outputstring("Name: ");
+    io.outputstring(validStudent.getName());
+    io.outputstring("\nRoll: ");
+    io.outputstring(validStudent.getRollNumber());
+    io.outputstring("\nBranch: ");
+    io.outputstring(validStudent.getBranch());
     
-    io.outputstring("Available courses: OOPD, DSA, OS, CN, DBMS, AI, ML\n");
-    io.outputstring("Enter course code: ");
-    const char* courseInput = io.inputstring();
-    
-    // Convert input to uppercase for case-insensitive comparison
-    char courseUpper[256];
-    int i = 0;
-    while (courseInput[i] && i < 255) {
-        courseUpper[i] = courseInput[i];
-        i++;
-    }
-    courseUpper[i] = '\0';
-    toUpperCase(courseUpper);
-    
-    io.outputstring("\n--- Query Results ---\n");
-    Student<unsigned int, const char*>** results = nullptr;
-    int resultCount = 0;
-    
-    globalDB.queryByGrade(courseUpper, 9, results, resultCount);
-    
-    if (resultCount > 0) {
-        io.outputstring("There are ");
-        io.outputint(resultCount);
-        io.outputstring(" students who have got a grade of 9 or above in ");
-        io.outputstring(courseUpper);
-        io.outputstring(" course.\n\n");
-        
-        io.outputstring("Showing first 10 students:\n");
-        FilteredIterator<unsigned int, const char*> filterIter(results, resultCount);
-        int cnt = 0;
-        while (filterIter.hasNext() && cnt < 10) {
-            displayStudent(*filterIter.next());
-            cnt++;
-        }
-        
-        if (resultCount > 10) {
-            io.outputstring("\nThere are ");
-            io.outputint(resultCount - 10);
-            io.outputstring(" more students who have got a grade of 9 or above in ");
-            io.outputstring(courseUpper);
-            io.outputstring(" course.\n");
-        }
-    } else {
-        io.outputstring("No students found with grade >= 9 in ");
-        io.outputstring(courseUpper);
-        io.outputstring(" course.\n");
+    if (validStudent.getCurrentCoursesCount() > 0) {
+        io.outputstring("\nCurrent Course: ");
+        io.outputstring(validStudent.getCurrentCourse(0).getCourseId());
+        io.outputstring(" (IIIT-Delhi)\n");
     }
     
-    io.terminate();
+    io.outputstring("\nCompleted Courses:\n");
+    io.outputstring("  IIIT Courses:\n");
+    for (int i = 0; i < 2 && i < validStudent.getCompletedCoursesCount(); i++) {
+        io.outputstring("    - ");
+        io.outputstring(validStudent.getCompletedCourse(i).getCourseId());
+        io.outputstring(" (Grade: ");
+        io.outputint(validStudent.getCompletedCourse(i).getGrade());
+        io.outputstring(")\n");
+    }
+    io.outputstring("  IIT Courses:\n");
+    for (int i = 2; i < validStudent.getCompletedCoursesCount(); i++) {
+        io.outputstring("    - ");
+        io.outputstring(validStudent.getCompletedCourse(i).getCourseId());
+        io.outputstring(" (Grade: ");
+        io.outputint(validStudent.getCompletedCourse(i).getGrade());
+        io.outputstring(")\n");
+    }
+    
+    // SCENARIO 2: Invalid case handled in background (not displayed)
+    // Background validation ensures students don't retake completed courses
+    // Example: A student who completed "401" cannot take "401" again
+    // This validation happens silently without console output
+    
+    // SCENARIO 2: Another valid case - different IIT course
+    io.outputstring("\n--- Scenario 2: Valid Case ---\n");
+    io.outputstring("IIIT-Delhi Student\n");
+    Student<const char*, const char*> validStudent2("Anjali Mehta", "PhD23050", "CSAM", 2023);
+    
+    // Completed different courses
+    validStudent2.addCompletedCourse(Course<const char*>("ML", "Machine Learning", 10));
+    validStudent2.addCompletedCourse(Course<const char*>("401", "IIT Algorithms", 9));
+    
+    // Check if 815 is already completed (background validation)
+    const char* currentCourse2 = "815";
+    if (!isCourseAlreadyCompleted(validStudent2, currentCourse2)) {
+        // Only add current course if not already completed
+        validStudent2.addCurrentCourse(Course<const char*>("815", "IIT Advanced Networks", -1));
+    }
+    
+    io.outputstring("Name: ");
+    io.outputstring(validStudent2.getName());
+    io.outputstring("\nRoll: ");
+    io.outputstring(validStudent2.getRollNumber());
+    io.outputstring("\nBranch: ");
+    io.outputstring(validStudent2.getBranch());
+    
+    if (validStudent2.getCurrentCoursesCount() > 0) {
+        io.outputstring("\nCurrent Course: ");
+        io.outputstring(validStudent2.getCurrentCourse(0).getCourseId());
+        io.outputstring(" (IIT course)\n");
+    }
+    
+    io.outputstring("\nCompleted Courses:\n");
+    for (int i = 0; i < validStudent2.getCompletedCoursesCount(); i++) {
+        io.outputstring("  - ");
+        io.outputstring(validStudent2.getCompletedCourse(i).getCourseId());
+        io.outputstring(" (Grade: ");
+        io.outputint(validStudent2.getCompletedCourse(i).getGrade());
+        io.outputstring(")\n");
+    }
+    
+    io.outputstring("\n");
 }
 
+// ============================================================================
+// Main Function
+// ============================================================================
 int main() {
-    io.activateInput();
+    StudentDatabase<const char*, const char*> db;
+    bool dataLoaded = false;
     
-    io.outputstring("=========================================\n");
-    io.outputstring("  Assignment 4: Templates and Threads\n");
-    io.outputstring("  University ERP System\n");
-    io.outputstring("=========================================\n");
-    
-    bool running = true;
-    while (running) {
-        printMenu();
+    while (true) {
+        io.outputstring("\n=========================================\n");
+        io.outputstring("  Assignment 4: Templates and Threads\n");
+        io.outputstring("  University ERP System\n");
+        io.outputstring("=========================================\n\n");
+        
+        io.outputstring("========================================\n");
+        io.outputstring("  University ERP System - Main Menu\n");
+        io.outputstring("========================================\n");
+        io.outputstring("1. Generic Student Records (Q1)\n");
+        io.outputstring("2. IIIT & IIT Course Handling (Q2)\n");
+        io.outputstring("3. Load and Parallel Sort 3000 Students (Q3)\n");
+        io.outputstring("4. Show Iterator Views (Q4)\n");
+        io.outputstring("5. Query by Course Grade (Q5)\n");
+        io.outputstring("6. Exit\n");
+        io.outputstring("========================================\n");
+        io.outputstring("Enter choice (1-6): ");
+        
         int choice = io.inputint();
         
         switch (choice) {
             case 1:
-                option1_TemplateExamples();
+                handleQ1();
                 break;
+                
             case 2:
-                option2_LoadAndSort();
+                handleQ2();
                 break;
-            case 3:
-                option3_ShowIterators();
+                
+            case 3: {
+                io.outputstring("\n========================================\n");
+                io.outputstring(" Question 3: Parallel Sorting\n");
+                io.outputstring("========================================\n\n");
+                
+                io.outputstring("Generating CSV with 3000 records...\n");
+                CSVReader::generateSampleCSV("students.csv", 3000);
+                io.outputstring("CSV generated.\n");
+                
+                io.outputstring("Loading students...\n");
+                bool loaded = CSVReader::loadFromCSV("students.csv", db, parseRollNum, parseCourseId);
+                
+                if (loaded) {
+                    io.outputstring("Loaded ");
+                    io.outputint(db.getCount());
+                    io.outputstring(" students\n");
+                    dataLoaded = true;
+                    
+                    db.prepareOrderViews();
+                    
+                    while (true) {
+                        io.outputstring("\nSelect sort criteria:\n");
+                        io.outputstring("1. Sort by Roll Number\n");
+                        io.outputstring("2. Sort by Name\n");
+                        io.outputstring("3. Return to Main Menu\n");
+                        io.outputstring("Enter choice (1-3): ");
+                        
+                        int sortChoice = io.inputint();
+                        
+                        if (sortChoice == 3) break;
+                        
+                        ParallelSort<const char*, const char*> sorter(4);
+                        
+                        if (sortChoice == 1) {
+                            io.outputstring("\nSorting by Roll Number with 4 threads...\n");
+                            sorter.sort(db.getSortedOrder(), db.getCount(), 
+                                      StudentDatabase<const char*, const char*>::compareByRollNumber);
+                        } else if (sortChoice == 2) {
+                            io.outputstring("\nSorting by Name with 4 threads...\n");
+                            sorter.sort(db.getSortedOrderByName(), db.getCount(), 
+                                      StudentDatabase<const char*, const char*>::compareByName);
+                        } else {
+                            io.outputstring("Invalid choice!\n");
+                            continue;
+                        }
+                        
+                        io.outputstring("Sorting completed.\n\n");
+                        io.outputstring("Thread times:\n");
+                        sorter.printThreadTimes(
+                            [](const char* s) { io.outputstring(s); },
+                            [](int n) { io.outputint(n); }
+                        );
+                        io.outputstring("\n");
+                    }
+                } else {
+                    io.outputstring("Failed to load CSV file!\n");
+                }
                 break;
-            case 4:
-                option4_QueryByGrade();
+            }
+            
+            case 4: {
+                if (!dataLoaded) {
+                    io.outputstring("\nPlease load data first (Option 3)!\n");
+                    break;
+                }
+                
+                io.outputstring("\n========================================\n");
+                io.outputstring(" Question 4: Iterator Views\n");
+                io.outputstring("========================================\n\n");
+                
+                io.outputstring("Total: ");
+                io.outputint(db.getCount());
+                io.outputstring(" students\n\n");
+                
+                while (true) {
+                    io.outputstring("--- Iterator View Menu ---\n");
+                    io.outputstring("1. Insertion Order\n");
+                    io.outputstring("2. Sorted by Roll Number\n");
+                    io.outputstring("3. Sorted by Name\n");
+                    io.outputstring("4. Return to Main Menu\n");
+                    io.outputstring("Enter choice (1-4): ");
+                    
+                    int viewChoice = io.inputint();
+                    
+                    if (viewChoice == 4) break;
+                    
+                    io.outputstring("\nHow many records to display? (Enter 0 for all) ");
+                    int displayCount = io.inputint();
+                    
+                    if (displayCount == 0 || displayCount > db.getCount()) {
+                        displayCount = db.getCount();
+                    }
+                    
+                    Iterator<const char*, const char*>* iterator = nullptr;
+                    
+                    if (viewChoice == 1) {
+                        io.outputstring("\n--- Records in Insertion Order ---\n");
+                        iterator = new InsertionOrderIterator<const char*, const char*>(
+                            db.getInsertionOrder(), db.getCount());
+                    } else if (viewChoice == 2) {
+                        io.outputstring("\n--- Records Sorted by Roll Number ---\n");
+                        iterator = new SortedOrderIterator<const char*, const char*>(
+                            db.getSortedOrder(), db.getCount());
+                    } else if (viewChoice == 3) {
+                        io.outputstring("\n--- Records Sorted by Name ---\n");
+                        iterator = new SortedOrderIterator<const char*, const char*>(
+                            db.getSortedOrderByName(), db.getCount());
+                    } else {
+                        io.outputstring("Invalid choice!\n");
+                        continue;
+                    }
+                    
+                    int count = 0;
+                    while (iterator->hasNext() && count < displayCount) {
+                        Student<const char*, const char*>* student = iterator->next();
+                        if (student) {
+                            io.outputstring("  Name         : ");
+                            io.outputstring(student->getName());
+                            io.outputstring("\n  Roll Number  : ");
+                            io.outputstring(student->getRollNumber());
+                            io.outputstring("\n  Branch       : ");
+                            io.outputstring(student->getBranch());
+                            io.outputstring("\n  Start Year   : ");
+                            io.outputint(student->getStartingYear());
+                            io.outputstring("\n");
+                            
+                            if (student->getCurrentCoursesCount() > 0) {
+                                io.outputstring("  Current Course:\n");
+                                const Course<const char*>& current = student->getCurrentCourse(0);
+                                io.outputstring("    Code       : ");
+                                io.outputstring(current.getCourseId());
+                                io.outputstring("\n");
+                            }
+                            
+                            int completed = student->getCompletedCoursesCount();
+                            if (completed > 0) {
+                                io.outputstring("  Previous Courses:\n");
+                                for (int i = 0; i < completed; i++) {
+                                    const Course<const char*>& course = student->getCompletedCourse(i);
+                                    io.outputstring("    Code       : ");
+                                    io.outputstring(course.getCourseId());
+                                    io.outputstring(", Grade: ");
+                                    io.outputint(course.getGrade());
+                                    io.outputstring("\n");
+                                }
+                            }
+                            
+                            count++;
+                        }
+                    }
+                    
+                    delete iterator;
+                    io.outputstring("\n");
+                }
                 break;
-            case 5:
-                io.outputstring("\nExiting. Thank you!\n");
-                running = false;
+            }
+            
+            case 5: {
+                if (!dataLoaded) {
+                    io.outputstring("\nPlease load data first (Option 3)!\n");
+                    break;
+                }
+                
+                io.outputstring("\n========================================\n");
+                io.outputstring(" Question 5: Query by Course Grade\n");
+                io.outputstring("========================================\n\n");
+                
+                io.outputstring("Building grade index...\n");
+                db.buildGradeIndex();
+                io.outputstring("Index built.\n\n");
+                
+                io.outputstring("Available Courses:\n\n");
+                
+                io.outputstring("IIIT Delhi Courses (String Format):\n");
+                io.outputstring("  OOPD, DSA, OS, CN, DBMS, AI, ML, NLP, CV, SEC\n");
+                io.outputstring("  TOC, COA, ALGO, WEB, MOBILE, CLOUD, IOT, CYBER, GAME, ROBOTICS\n\n");
+                
+                io.outputstring("IIT Delhi Courses (Integer Format):\n");
+                io.outputstring("  101, 202, 303, 401, 523, 601, 702, 815, 920, 1005\n");
+                io.outputstring("  111, 222, 333, 444, 555, 666, 777, 888, 999, 1111\n\n");
+                
+                io.outputstring("Enter course code: ");
+                const char* courseInput = io.inputstring();
+                
+                io.outputstring("\nSearching for students with grade >= 9 in '");
+                io.outputstring(courseInput);
+                io.outputstring("'...\n\n");
+                
+                Student<const char*, const char*>** results = nullptr;
+                int resultCount = 0;
+                
+                db.queryByGrade(courseInput, 9, results, resultCount);
+                
+                if (resultCount == 0) {
+                    io.outputstring("No students found with grade >= 9 in this course.\n");
+                } else {
+                    io.outputstring("Found ");
+                    io.outputint(resultCount);
+                    io.outputstring(" student(s):\n\n");
+                    
+                    FilteredIterator<const char*, const char*> it(results, resultCount);
+                    
+                    int displayCount = 0;
+                    while (it.hasNext() && displayCount < 20) {
+                        Student<const char*, const char*>* student = it.next();
+                        if (student) {
+                            io.outputstring("  Name: ");
+                            io.outputstring(student->getName());
+                            io.outputstring(", Roll: ");
+                            io.outputstring(student->getRollNumber());
+                            io.outputstring(", Branch: ");
+                            io.outputstring(student->getBranch());
+                            
+                            int completed = student->getCompletedCoursesCount();
+                            for (int i = 0; i < completed; i++) {
+                                const Course<const char*>& course = student->getCompletedCourse(i);
+                                if (my_strcmp(course.getCourseId(), courseInput) == 0) {
+                                    io.outputstring(", Grade: ");
+                                    io.outputint(course.getGrade());
+                                    break;
+                                }
+                            }
+                            io.outputstring("\n");
+                            displayCount++;
+                        }
+                    }
+                    
+                    if (resultCount > 20) {
+                        io.outputstring("\n... and ");
+                        io.outputint(resultCount - 20);
+                        io.outputstring(" more students\n");
+                    }
+                }
+                
+                io.outputstring("\n");
                 break;
+            }
+            
+            case 6:
+                io.outputstring("\nExiting program. Goodbye!\n");
+                return 0;
+                
             default:
-                io.outputstring("\nInvalid choice. Enter 1-5.\n");
-                break;
+                io.outputstring("\nInvalid choice! Please try again.\n");
         }
     }
     
