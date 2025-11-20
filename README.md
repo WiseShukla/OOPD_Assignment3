@@ -51,7 +51,8 @@ A comprehensive C++ template-based Enterprise Resource Planning (ERP) system for
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd student-erp-system
+cd OOPD_Assignment3
+
 
 # Build the project
 make
@@ -185,6 +186,10 @@ Each of 4 threads processes ~750 records, with timing displayed in appropriate u
 **CSV Not Found**
 - Don't worry! The program auto-generates it
 - Use Option 3 first to create `students.csv`
+
+
+
+
 
 
 
