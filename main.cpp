@@ -23,6 +23,15 @@ const char* parseString(const char* str) {
     return buffer;
 }
 
+// Convert string to uppercase
+void toUpperCase(char* str) {
+    for (int i = 0; str[i]; i++) {
+        if (str[i] >= 'a' && str[i] <= 'z') {
+            str[i] = str[i] - 'a' + 'A';
+        }
+    }
+}
+
 // Display student information
 template<typename RollNumType, typename CourseIDType>
 void displayStudent(const Student<RollNumType, CourseIDType>& student);
@@ -93,10 +102,17 @@ void printMenu() {
     io.outputstring("2. Load and Sort 3000 Students (Q3)\n");
     io.outputstring("3. Show Iterator Views (Q4)\n");
     io.outputstring("4. Query by Course Grade (Q5)\n");
-    io.outputstring("5. Run All Operations\n");
-    io.outputstring("6. Exit\n");
+    io.outputstring("5. Exit\n");
     io.outputstring("========================================\n");
-    io.outputstring("Enter choice (1-6): ");
+    io.outputstring("Enter choice (1-5): ");
+}
+
+void printIteratorMenu() {
+    io.outputstring("\n--- Iterator View Menu ---\n");
+    io.outputstring("1. Insertion Order (order in which records were entered)\n");
+    io.outputstring("2. Sorted Order (sorted by roll number)\n");
+    io.outputstring("3. Return to Main Menu\n");
+    io.outputstring("Enter choice (1-3): ");
 }
 
 // Global database for menu operations
@@ -127,7 +143,7 @@ void option1_TemplateExamples() {
     s4.addCompletedCourse(Course<int>(201, "Mechanics", 7));
     displayStudent(s4);
     
-    io.outputstring("\nTemplate flexibility verified!\n");
+    io.terminate();
 }
 
 void option2_LoadAndSort() {
@@ -179,29 +195,54 @@ void option3_ShowIterators() {
     io.outputint(globalDB.getCount());
     io.outputstring(" students\n");
     
-    io.outputstring("\n--- First 5 in Insertion Order ---\n");
-    InsertionOrderIterator<unsigned int, const char*> insertIter(
-        globalDB.getInsertionOrder(), globalDB.getCount()
-    );
-    
-    int cnt = 0;
-    while (insertIter.hasNext() && cnt < 5) {
-        displayStudent(*insertIter.next());
-        cnt++;
+    bool iteratorRunning = true;
+    while (iteratorRunning) {
+        printIteratorMenu();
+        int viewChoice = io.inputint();
+        
+        if (viewChoice == 3) {
+            iteratorRunning = false;
+            continue;
+        }
+        
+        if (viewChoice != 1 && viewChoice != 2) {
+            io.outputstring("\nInvalid choice. Enter 1-3.\n");
+            continue;
+        }
+        
+        io.outputstring("\nHow many records to display? ");
+        int numRecords = io.inputint();
+        
+        if (numRecords <= 0 || numRecords > globalDB.getCount()) {
+            numRecords = globalDB.getCount();
+        }
+        
+        if (viewChoice == 1) {
+            io.outputstring("\n--- Records in Insertion Order ---\n");
+            InsertionOrderIterator<unsigned int, const char*> insertIter(
+                globalDB.getInsertionOrder(), globalDB.getCount()
+            );
+            
+            int cnt = 0;
+            while (insertIter.hasNext() && cnt < numRecords) {
+                displayStudent(*insertIter.next());
+                cnt++;
+            }
+        } else if (viewChoice == 2) {
+            io.outputstring("\n--- Records in Sorted Order (by Roll Number) ---\n");
+            SortedOrderIterator<unsigned int, const char*> sortedIter(
+                globalDB.getSortedOrder(), globalDB.getCount()
+            );
+            
+            int cnt = 0;
+            while (sortedIter.hasNext() && cnt < numRecords) {
+                displayStudent(*sortedIter.next());
+                cnt++;
+            }
+        }
+        
+        io.terminate();
     }
-    
-    io.outputstring("\n--- First 5 in Sorted Order ---\n");
-    SortedOrderIterator<unsigned int, const char*> sortedIter(
-        globalDB.getSortedOrder(), globalDB.getCount()
-    );
-    
-    cnt = 0;
-    while (sortedIter.hasNext() && cnt < 5) {
-        displayStudent(*sortedIter.next());
-        cnt++;
-    }
-    
-    io.outputstring("\nTwo different views shown.\n");
 }
 
 void option4_QueryByGrade() {
@@ -216,19 +257,36 @@ void option4_QueryByGrade() {
     io.outputstring("Building index...\n");
     globalDB.buildGradeIndex();
     io.outputstring("Index built.\n");
+    io.terminate();
     
-    io.outputstring("\n--- Students with grade >= 9 in OOPD ---\n");
+    io.outputstring("Available courses: OOPD, DSA, OS, CN, DBMS, AI, ML\n");
+    io.outputstring("Enter course code: ");
+    const char* courseInput = io.inputstring();
+    
+    // Convert input to uppercase for case-insensitive comparison
+    char courseUpper[256];
+    int i = 0;
+    while (courseInput[i] && i < 255) {
+        courseUpper[i] = courseInput[i];
+        i++;
+    }
+    courseUpper[i] = '\0';
+    toUpperCase(courseUpper);
+    
+    io.outputstring("\n--- Query Results ---\n");
     Student<unsigned int, const char*>** results = nullptr;
     int resultCount = 0;
     
-    globalDB.queryByGrade("OOPD", 9, results, resultCount);
-    
-    io.outputstring("Found ");
-    io.outputint(resultCount);
-    io.outputstring(" students");
+    globalDB.queryByGrade(courseUpper, 9, results, resultCount);
     
     if (resultCount > 0) {
-        io.outputstring(" (showing first 10):\n");
+        io.outputstring("There are ");
+        io.outputint(resultCount);
+        io.outputstring(" students who have got a grade of 9 or above in ");
+        io.outputstring(courseUpper);
+        io.outputstring(" course.\n\n");
+        
+        io.outputstring("Showing first 10 students:\n");
         FilteredIterator<unsigned int, const char*> filterIter(results, resultCount);
         int cnt = 0;
         while (filterIter.hasNext() && cnt < 10) {
@@ -237,24 +295,19 @@ void option4_QueryByGrade() {
         }
         
         if (resultCount > 10) {
-            io.outputstring("... and ");
+            io.outputstring("\nThere are ");
             io.outputint(resultCount - 10);
-            io.outputstring(" more\n");
+            io.outputstring(" more students who have got a grade of 9 or above in ");
+            io.outputstring(courseUpper);
+            io.outputstring(" course.\n");
         }
     } else {
-        io.outputstring(".\n");
+        io.outputstring("No students found with grade >= 9 in ");
+        io.outputstring(courseUpper);
+        io.outputstring(" course.\n");
     }
     
-    io.outputstring("\nQuery used O(1) hash index.\n");
-}
-
-void option5_RunAll() {
-    io.outputstring("\n=== Running All Operations ===\n");
-    option1_TemplateExamples();
-    option2_LoadAndSort();
-    option3_ShowIterators();
-    option4_QueryByGrade();
-    io.outputstring("\n=== All operations completed ===\n");
+    io.terminate();
 }
 
 int main() {
@@ -284,14 +337,11 @@ int main() {
                 option4_QueryByGrade();
                 break;
             case 5:
-                option5_RunAll();
-                break;
-            case 6:
                 io.outputstring("\nExiting. Thank you!\n");
                 running = false;
                 break;
             default:
-                io.outputstring("\nInvalid choice. Enter 1-6.\n");
+                io.outputstring("\nInvalid choice. Enter 1-5.\n");
                 break;
         }
     }
